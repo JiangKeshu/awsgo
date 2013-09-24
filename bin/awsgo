@@ -1,0 +1,160 @@
+#!/usr/bin/env ruby
+
+require 'pp'
+require 'json'
+require 'optparse'
+
+BASE_PATH = File.expand_path('../../', __FILE__)
+
+#Get region list
+def get_region_list
+	Array region_list = []
+	
+	json_regions = `aws ec2 describe-regions`
+	for i in JSON.parse(json_regions)["Regions"]
+		region_list << i["RegionName"]
+	end
+	return region_list.sort
+end
+
+
+#Parse options
+@options = {}
+option_parser = OptionParser.new do |opts|
+	opts.banner = <<EOF
+[awsgo Usage]:
+list region name: 
+	awsgo -q
+list all instances under default or specified region: 
+	awsgo -l [-r <region name>]
+login to an instance by id: 
+	awsgo -i <instance id> [-r <region name>]
+login to an instance by name: 
+	awsgo -n <instance id> [-r <region name>]
+
+EOF
+	@options[:list] = false
+	opts.on('-l', '--list', 'list instance') do
+		@options[:list] = true
+	end
+	@options[:qr] = false
+	opts.on('-q', '--queryregion', 'list region') do
+		@options[:qr] = true
+	end
+
+	opts.on('-r REGION', '--region REGION', 'list instances for specific region') do |value|
+		@options[:region] = value
+	end
+
+	opts.on('-i ID', '--instance-id ID', 'login instance by id') do |value|
+		@options[:instance_id] = value
+	end
+
+	opts.on('-n NAME', '--instance-name NAME', 'login instance by name') do |value|
+		@options[:instance_name] = value
+	end
+end.parse!
+
+def get_instance_list
+	if !@options[:region].nil?
+		param_region = '--region ' + @options[:region]
+	else
+		param_region = ''
+	end
+	json_instances = `aws ec2 describe-instances #{param_region}`
+	instance_list = []
+	instance_name = ''
+	hash_instance = JSON.parse(json_instances)["Reservations"]
+	for i in hash_instance do
+		instance = {}
+		is = i['Instances'][0]
+		if is['Platform'] != 'windows'
+			instance['id'] = is["InstanceId"]
+			for j in is["Tags"] do
+				if j["Key"] = "Name"
+					instance_name = j["Value"]
+				end
+			end
+			instance['name'] = instance_name
+			instance['keyname'] = is["KeyName"]
+			instance['AZ'] = is["Placement"]["AvailabilityZone"]
+			instance['PublicIP'] = is["PublicIpAddress"]
+			instance_list << instance
+		end
+	end
+	return instance_list
+end
+
+def puts_table(data)
+	array_data = []
+	array_key = []
+	data[0].each_key do |key|
+		array_key << key
+	end
+	format = "%20s " * array_key.size + "\n"
+	separator = ["-" * 20] * array_key.size
+	printf(format, *array_key)
+	printf(format, *separator)
+  for i in data
+		array_value = []
+		i.each do |key, value|
+		  array_value << value
+		end
+		array_data << array_value
+	end
+	array_data.each do |v|
+	  printf(format, *v)
+	end
+end
+
+def login(instance)
+	ip = instance["PublicIP"]
+	user = 'ec2-user'
+	key_path = "~/.ssh/aws/#{instance["keyname"]}.pem"
+	cmd = %Q!ssh ec2-user@#{instance["PublicIP"]} -i ~/.ssh/aws/#{instance["keyname"]}.pem -o "ConnectTimeout=5"!
+	system(cmd)
+end
+
+#Get instance list
+if @options[:list] == false && @options[:qr] == false
+	rl = get_instance_list
+	instance_id = @options[:instance_id]
+	instance_name = @options[:instance_name]
+	if !instance_id.nil?
+		for i in rl
+			if i["id"] == instance_id
+				instance = i
+			end
+		end
+		if !instance.nil?
+			login(instance)
+		else
+			puts "Instance not found"
+		end
+	elsif !instance_name.nil?
+		count = 0
+		for i in rl
+			if i["name"] == instance_name
+				instance = i
+				count = count + 1
+			end
+		end
+		if count == 1	
+			login(instance)
+		elsif count > 1
+			puts "More than 1 instance has same name, please use instance id to login"
+		else
+			puts "Instance not found"
+		end
+	end
+elsif @options[:qr] == true
+	rl = get_region_list
+	printf("%20s \n", 'Regions')
+	printf("%20s \n", '-'*20)
+	for i in rl
+		printf("%20s \n", i)
+	end
+elsif @options[:list] == true
+	il = get_instance_list
+	puts_table(il)
+end	
