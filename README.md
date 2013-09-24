@@ -12,4 +12,4 @@ Installation
 ============
 1. Install python
 2. Install awscli
-> pip install awscli
+```pip install awscli```
