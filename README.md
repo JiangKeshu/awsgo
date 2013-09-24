@@ -10,6 +10,30 @@ Requirements
 
 Installation
 ============
-1. Install python
-2. Install awscli
-```pip install awscli```
+Step 1. Install Python
+Step 2. Install awscli
+
+```
+pip install awscli
+```
+Step 3. Download awsgo
+Step 4. Put key-pair under awsgo/etc/keys
+
+Usage
+=====
+***list region name:***
+```
+awsgo -q
+```
+***list all instances under default or specified region:***
+```
+awsgo -l [-r <region name>]
+```
+***login to an instance by id:***
+```
+awsgo -i <instance id> [-r <region name>]
+```
+***login to an instance by name:***
+```
+awsgo -n <instance id> [-r <region name>]
+```
