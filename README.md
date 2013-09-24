@@ -11,13 +11,14 @@ Requirements
 Installation
 ============
 Step 1. Install Python
-Step 2. Install awscli
 
+Step 2. Install awscli
 ```
 pip install awscli
 ```
 Step 3. Download awsgo
-Step 4. Put key-pair under awsgo/etc/keys
+
+Step 4. Put key-pair under ``awsgo/etc/keys``
 
 Usage
 =====
