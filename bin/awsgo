@@ -5,6 +5,8 @@ require 'json'
 require 'optparse'
 
 BASE_PATH = File.expand_path('../../', __FILE__)
+KEY_PATH = File.expand_path('etc/keys', BASE_PATH)
+CACHE_PATH = File.expand_path('var/cache', BASE_PATH)
 
 #Get region list
 def get_region_list
@@ -111,7 +113,7 @@ def login(instance)
 	ip = instance["PublicIP"]
 	user = 'ec2-user'
 	key_path = "~/.ssh/aws/#{instance["keyname"]}.pem"
-	cmd = %Q!ssh ec2-user@#{instance["PublicIP"]} -i ~/.ssh/aws/#{instance["keyname"]}.pem -o "ConnectTimeout=5"!
+	cmd = %Q!ssh ec2-user@#{instance["PublicIP"]} -i #{KEY_PATH}/#{instance["keyname"]}.pem -o "ConnectTimeout=5"!
 	system(cmd)
 end
 
