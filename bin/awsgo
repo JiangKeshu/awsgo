@@ -57,6 +57,14 @@ EOF
 	opts.on('-n NAME', '--instance-name NAME', 'login instance by name') do |value|
 		@options[:instance_name] = value
 	end
+
+	opts.on('-u USERNAME', '--username USERNAME', 'login username') do |value|
+		@options[:username] = value
+	end
+
+	opts.on('-o NUM', '--num NUM', 'login server number') do |value|
+		@options[:num] = value
+	end
 end.parse!
 
 def get_instance_list
@@ -69,21 +77,26 @@ def get_instance_list
 	instance_list = []
 	instance_name = ''
 	hash_instance = JSON.parse(json_instances)["Reservations"]
+	num = 1
 	for i in hash_instance do
-		instance = {}
-		is = i['Instances'][0]
-		if is['Platform'] != 'windows'
-			instance['id'] = is["InstanceId"]
-			for j in is["Tags"] do
-				if j["Key"] = "Name"
-					instance_name = j["Value"]
+		i['Instances'].each do |i|
+			instance = {}
+			is = i
+			if is['Platform'] != 'windows'
+				instance['num'] = num
+				instance['id'] = is["InstanceId"]
+				for j in is["Tags"] do
+					if j["Key"] = "Name"
+						instance_name = j["Value"]
+					end
 				end
+				instance['name'] = instance_name
+				instance['keyname'] = is["KeyName"]
+				instance['AZ'] = is["Placement"]["AvailabilityZone"]
+				instance['PublicIP'] = is["PublicIpAddress"]
+				num = num + 1
+				instance_list << instance
 			end
-			instance['name'] = instance_name
-			instance['keyname'] = is["KeyName"]
-			instance['AZ'] = is["Placement"]["AvailabilityZone"]
-			instance['PublicIP'] = is["PublicIpAddress"]
-			instance_list << instance
 		end
 	end
 	return instance_list
@@ -112,10 +125,10 @@ def puts_table(data)
 end
 
 def login(instance)
+	username = @options[:username].nil?? 'ec2-user' : @options[:username]
 	ip = instance["PublicIP"]
-	user = 'ec2-user'
 	key_path = "~/.ssh/aws/#{instance["keyname"]}.pem"
-	cmd = %Q!ssh ec2-user@#{instance["PublicIP"]} -i #{KEY_PATH}/#{instance["keyname"]}.pem -o "ConnectTimeout=5"!
+	cmd = %Q!ssh #{username}@#{instance["PublicIP"]} -i #{KEY_PATH}/#{instance["keyname"]}.pem -o "ConnectTimeout=5"!
 	system(cmd)
 end
 
@@ -124,6 +137,7 @@ if @options[:list] == false && @options[:qr] == false
 	rl = get_instance_list
 	instance_id = @options[:instance_id]
 	instance_name = @options[:instance_name]
+	num = @options[:num]
 	if !instance_id.nil?
 		for i in rl
 			if i["id"] == instance_id
@@ -149,6 +163,17 @@ if @options[:list] == false && @options[:qr] == false
 			puts "More than 1 instance has same name, please use instance id to login"
 		else
 			puts "Instance not found"
+		end
+	elsif !num.nil?
+		for i in rl
+			if i["num"].to_i == num.to_i
+				instance = i
+			end
+		end
+		if !instance.nil?
+			login(instance)
+		else
+			puts "Wrong number"
 		end
 	end
 elsif @options[:qr] == true
