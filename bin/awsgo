@@ -94,6 +94,13 @@ def get_instance_list
 				instance['keyname'] = is["KeyName"]
 				instance['AZ'] = is["Placement"]["AvailabilityZone"]
 				instance['PublicIP'] = is["PublicIpAddress"]
+				if is["NetworkInterfaces"].size > 0
+					is["NetworkInterfaces"].each do |nif|
+					  if !nif["Association"].nil?
+							instance['PublicIP'] = nif["Association"]["PublicIp"]
+						end
+					end
+				end
 				num = num + 1
 				instance_list << instance
 			end
