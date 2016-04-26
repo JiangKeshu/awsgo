@@ -65,6 +65,10 @@ EOF
 	opts.on('-o NUM', '--num NUM', 'login server number') do |value|
 		@options[:num] = value
 	end
+
+	opts.on('-p PROFILE', '--profile PROFILE', 'aws cli profile') do |value|
+		@options[:profile] = value
+	end
 end.parse!
 
 def get_instance_list
@@ -73,27 +77,39 @@ def get_instance_list
 	else
 		param_region = ''
 	end
-	json_instances = `aws ec2 describe-instances #{param_region}`
+	if !@options[:profile].nil?
+		param_profile = '--profile ' + @options[:profile]
+	else
+		param_profile = ''
+	end
+	json_instances = `aws ec2 describe-instances #{param_region} #{param_profile}`
 	instance_list = []
-	instance_name = ''
 	hash_instance = JSON.parse(json_instances)["Reservations"]
 	num = 1
 	for i in hash_instance do
 		i['Instances'].each do |i|
+			instance_name = ''
 			instance = {}
 			is = i
 			if is['Platform'] != 'windows'
 				instance['num'] = num
-				instance['id'] = is["InstanceId"]
-				for j in is["Tags"] do
-					if j["Key"] = "Name"
-						instance_name = j["Value"]
-					end
+        instance['ID'] = is['InstanceId']
+        if !is["Tags"].nil?
+				  for j in is["Tags"] do
+            instance_name = ''
+				  	if j["Key"] == "Name"
+				  		instance_name = j["Value"]
+              break
+            elsif j["Key"] == "aws:elasticmapreduce:instance-group-role"
+              instance_name = j["Value"]
+              break
+				  	end
+				  end
 				end
 				instance['name'] = instance_name
-				instance['keyname'] = is["KeyName"]
 				instance['AZ'] = is["Placement"]["AvailabilityZone"]
 				instance['PublicIP'] = is["PublicIpAddress"]
+        instance['state'] = is["State"]["Name"]
 				if is["NetworkInterfaces"].size > 0
 					is["NetworkInterfaces"].each do |nif|
 					  if !nif["Association"].nil?
@@ -101,6 +117,7 @@ def get_instance_list
 						end
 					end
 				end
+				instance['keyname'] = is["KeyName"]
 				num = num + 1
 				instance_list << instance
 			end
@@ -136,6 +153,7 @@ def login(instance)
 	ip = instance["PublicIP"]
 	key_path = "~/.ssh/aws/#{instance["keyname"]}.pem"
 	cmd = %Q!ssh #{username}@#{instance["PublicIP"]} -i #{KEY_PATH}/#{instance["keyname"]}.pem -o "ConnectTimeout=5"!
+  puts cmd
 	system(cmd)
 end
 
